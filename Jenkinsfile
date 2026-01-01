@@ -1,28 +1,49 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "<sathishsk1918>/devops-ci-app"
+        IMAGE_TAG  = "${BUILD_NUMBER}"
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/sathish159357/Devops-2.git'
+                git branch: 'main,
+	            url: 'https://github.com/sathish159357/Devops-2.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t devops-ci-app:latest .'
+                sh '''
+                docker build -t $IMAGE_NAME:$IMAGE_TAG .
+                docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+                '''
             }
         }
 
-        stage('Run Container Test') {
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Image') {
             steps {
                 sh '''
-                docker run -d -p 5000:5000 devops-ci-app:latest
-                sleep 5
-                curl http://localhost:5000
+                docker push $IMAGE_NAME:$IMAGE_TAG
+                docker push $IMAGE_NAME:latest
                 '''
             }
         }
     }
 }
+
